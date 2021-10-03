@@ -404,3 +404,101 @@ CS영역
  * 상대의 이해력이 매우 부족하다면 어떻게 해야하는가?
  * 분석가에게 요구되는 가장 중요한 자질은 무엇인가?
  * 분석가에게 상상력이 중요한가?
+
+---------------------------------------------------
+## 02 분석 실무에 대한 이해 Part2
+
+### 02-1 Spark & 주요 Modules 소개
+
+#### 데이터 분석 환경
+
+분석가가 좋은 성과를 내기 위해서 분석 환경을 잘 이해/ 활용하고 떄로는 (분석 관점에 맞게) 개선점을 엔지니어에게 전달 하는등의 역할이 필요
+따라서 환경/시스템적 요소에 대한 이해와 지속적인 관여 역시 분석가의 역할
+
+#### 스파크 소개
+
+최근 비정형 데이터의 생성과 매우 큰 사이즈 등의 이슈 ==> 하둡/스파크를 도입하는 추세
+
+비록 RDBS 만큼 즉각적 생성/수정/변경 등은 어렵지만, 
+Spark나 하둡을 이용할 경우 분산 저장 및 처리를 통해 빠른 분석 진행이 가능
+
+최근에는 하둡보다 분석 친화적인 스파크 주로 사용
+(스파크가 Pyspark/ SparkR과 같은 분석 API 제공) 
+(하둡은 Java, Spark는 스칼라 기반)
+![image](https://user-images.githubusercontent.com/62330533/135750601-9d824a71-a9d6-4d89-a427-4ae207e43d6c.png)
+
+#### 스파크 RDD, DataFrame, Lazy execution
+
+스파크에서 주로 다루는 주요 데이터 타입 ==> RDD(Resilient Distributed Datasets)와 DataFrame
+Lazy Execution ==> 함수를 Transform, Action으로 구분해 Action 일 경우에만 실제 실행이 발생하는 것을 의미
+매번 결과를 갖고 오지 않고, 필요한 경우에만 RAM을 통해 데이터 I/O가 발생하므로 분석 작업 속도가 매우 높음
+
+
+##### RDD
+* Distribute collection of JVM Objects
+* Funtional Operators (map, filter, reduceByKey, ect)
+![image](https://user-images.githubusercontent.com/62330533/135750783-6874b6cf-0cd3-42f1-8b3e-ec08c060b9fe.png)
+
+
+##### DataFrame
+* Distribute collection of Row objects
+* Expression-based operations and UDFs
+* Logical plans and optimizer
+* Fast/efficient internal reprenstations
+
+![image](https://user-images.githubusercontent.com/62330533/135750786-d860fc3c-2538-4e6c-952f-a347360c8089.png)
+
+##### Lazy Execution
+![image](https://user-images.githubusercontent.com/62330533/135750802-e938b047-4f6d-4c5c-9a1b-85d7dcc5b714.png)
+
+
+#### 스파크 Modules & 머신러닝
+
+Spark Streaming
+SparkSQL
+MLlib
+GraphX
+--------------------------------------------------
+### 02-2. AWS 소개 및 로그 정의/파싱
+
+#### AWS 소개
+데이터를 수집하고 저장, 처리 및 분석하는 일련의 과정을 직접 구현하기에 많은 인력과 자원/시간이 소모
+--> 이를 쉽게 가능하도록 클라우드 플랫폼 솔루션을 제공하는 것이 AWS
+
+EMR --> Spark, Hadoop, Presto, HBase 등 분석에 유용한 분산 프레임 워크를 제공
+Amazon S3 및 Amazon DynamoDB와 같은 저장소와 호환
+
+#### 로그 정의/설계
+
+##### 로그 데이터
+
+* 장점
+** 최근 사용자의 사용성 및 행동 패턴을 확인하거나 유저 클러스터링, 모델링 등 다양한 목적으로 사요되는 행동 기반 데이터
+** RDB의 결과론적 데이터와 달리 특정 결과에 이르는 과정과 흐름을 상세히 파악 가능 ==> 서비스 개선에 유용
+* 단점
+** 데이터 용량이 크기 때문에 스토리지 관련 비용/리소스 발생
+** JSON, CSV, TSV와 같은 비정형 텍스트 형태이므로 기존 RDB와는 다른 수집/처리 시스템과 전문 인력이 요구됨
+
+##### 로그 정의 및 설계 
+
+* 분석가는 산재된 로그를 분석 목적에 맞게 포멧을 정리하고 로깅할 항목을 우선 순위에 맞게 정하는 역할
+* 로그 발생시 수집할 필드명과 값의 이름을 정의하고 설계하는 업무
+* 실제 데이터 수집/처리시 정의한 대로 로그가 쌓이므로 이 단계는 매우 중요한 단계
+* 쌓인 로그의 데이터 퀄리티를 확인하고 관리하는 역할 역시 분석가의 몫
+
+
+##### 로그 정의 예시
+
+* 최근 로그의 형태 ==> JSON(JavaScript Object Notation)
+* Pandas의 Dictionary와 거의 유사하게 Key, Value로 구성되어 있으며, Hierchial 구조 가질 수 있음
+* 분석가는 Json의 Key와 Value에 들어갈 값을 정함.
+
+--------------------------------------------------------
+### 02-3. SQL 데이터 추출
+
+#### 데이터 추출
+
+* 이미 수집/처리된 테이블에서 데이터를 불러오고 간단히 전처리하는 방법
+* SQL 언어는 데이터를 추출하고 간단하게 전처리, 탐색을 할 때 매우 유용한 언어
+
+** 실습 예제 진행하기
