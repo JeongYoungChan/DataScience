@@ -669,3 +669,299 @@ EDA는 분석가가 데이터를 이해하고 모델링을 잘 하기 위한 필
 * 분석 한계점
 
 -----------------------------------------------------------------------
+
+## 04. 결제 예측 모델링
+
+### 목적
+* 결제 행동을 예측하는 모델을 구축하고 평가
+* 최적의 파라메터를 찾는 방법을 실습
+* 
+### 목차
+* 문제 정의 및 가설
+* 분석 Frame 구성
+* 데이터 전처리
+* 데이터 분석
+* 리포트 작성
+
+----------------------------------------------------------------------
+### 04-1. 문제 정의 및 가설
+
+마켓팅 팀 => 회원의 행동 패턴을 근거로, 결제로 전환할 유저를 모델을 통해 예측하는 것이 가능한지 여부
+
+#### 배경
+마케팅 팀 관심 => 에산을 집행하고, 이에 따른 결과를 통해 예산을 효율화 하는 것. STP 전략
+
+유저/소비자를 세분화해 그룹으로 나누고, 각 그룹에 맞는 개인화 메시지를 전달하거나 그룹의 우선순위에 따라 예산 및 접근 방식에 차등을 두는 방식 이용
+
+업무 요청
+* 결제자수의 증가에 대한 비즈니스 요구 발생 (마케팅팀 KPI)
+* 유저의 행동을 기반으로, 결제 가능성이 높은 유저를 선별하여 해당 유저를 위주로 타깃팅 (광고, 프로모션 등)
+* 데이터 분석가 뿐만 아니라, 여러 팀의 협업이 필요한 상황
+
+#### 목적
+데이터 분석가의 목적
+
+* 결제자로 전환할 가능성이 높은 유저를 판별하는 모델 구축
+* 예측 모델의 성능을 측정할 수 있는 지표를 정의
+
+#### 가설
+
+가설을 설정하기 위해 도메인 지식 많이 요구
+결제와 관련 있는 행동 변수를 사전이 이해하고 리스트업 하는 것이 유용
+이러한 도움 받기 어렵다면, 탐색적 데이터 분석을 통해 Feature Selection 하는 것이 필요
+
+* 가설1: Open, Edit/Save, Export와 같은 문서 이용행동 관련 변수가 모델 구축에 유의미한 변수 일것
+* 가설 2: 문서 사용 트래픽 및 일주일 간 방문일수 역시 결제 행동와 관련 있는 예측 변수일 것
+
+
+#### Expected Output
+
+* 타깃팅 유저 정보 테이블 (RDB, 일별 배치)
+ * Schema: 날짜, 타깃팅 대상 유저의 아이디, 결제 확률, 결제 예상 여부 (결제 확률 50% 이상일 경우 True, 이하일 경우 False)
+* 타깃팅 결과 테이블 (RDB, 일별 배치)
+ * Schema: 날짜, 타깃 유저 아이디, 타깃 액티비티, 결제 여부(기존 3일내)
+* 결제 정보 테이블 (기존 Hadoop 저장 테이블)
+ * Schema: 날짜, 전체 결제 유저 아이디, 결제일
+* 모델 구축 과정 문서(수식) 및 코드
+* 모델 성과 측정 대시보드/리포트 (Recall, Precision, AUC, F1-score)
+----------------------------------------------------
+### 04-2 분석 프레임
+
+일반적인 모델링 구축을 위한 프로세스
+![image](https://user-images.githubusercontent.com/62330533/138593910-044cf0aa-928d-4c97-a5e5-5514b160440e.png)
+
+프로젝트의 프레임 구성
+
+* 데이터 수집 (목적에 맞는 Data 수집)
+ * 결제 바로 전, 유저의 행동 패턴을 기술할 수 있는 로그 항목을 수집 (문서 오픈, 편집 등)
+* 데이터 추출 
+ * Extraction, Preprocessing (SQL 필터, 조인 등)
+* 데이터 전처리
+ * Feature Engineering (분포 변환, PCA, 결측치 및 이상치 처리 등)
+* 모델 구축 및 파라메터 설정
+ * Classification Models (Logistic Regression, Random Forest, etc)
+ * Cross Validation, Grid Search, Pipeline
+* 모델 평가
+ * Precision, Recall, F1-score
+
+#### Logic Tree
+
+로직 트리를 이용한 전체적인 흐름을 구성
+
+로직트리를 구성할 때는 전체적인 프로젝트를 고려하면서 짜는 것이 유용
+![image](https://user-images.githubusercontent.com/62330533/138593990-0815e97f-0926-4530-8ab3-b65b1eb99725.png)
+
+#### 추가 고려 사항
+
+* 전체적인 그리고 세부적인 일정이 어떻게 되는가? 모델링과 관련된 일정을 맞출 수 있는가?
+* 각 팀 및 담당자의 역할은 정확히 무엇인가?
+* 엔지니어 및 개발 담당은 누구이며, 어떠한 사항이 논의되어야 하는가? 분석 및 개발 언어는? 제품 내 모델 및 데이터 처리 방식은?
+* 정확한 목적은 무엇이며 목표 달성 수준은 어떻게 정의할 것인가?
+* 필요한 데이터가 무엇인가? 확보가 가능한가?
+----------------------------------------------------------
+### 04-3. 데이터 전처리
+
+분석 결과/인사이트와 모델 성능에 직접적인 영향을 미치는 과정 ==> 중요
+분석가의 80% 시간을 소요
+반복적으로 진행
+
+#### 데이터 불러오기 및 인덱스 지정
+
+유니크 식별값을 인덱스로 지정
+dataframe의 각 컬럼의 타입과 결측치 파악
+
+#### 결측치 처리
+
+1) 결측치 사례 제거
+2) 수치형의 경우 평균이나 중앙치로 대체 (Mean, Median)
+3) 범주형인 경우 mode 값으로 대체 (Mode 최빈치, 예측 모형을 통해 Null 값 대체)
+4) 간단한 예측 모델로 대체
+
+df.info() 로 Missing value 파악 추천
+np.nan ==> missing value로 불러옴
+
+info()를 실행했을 때 float or int 데이터가 object(string)으로 되어 있는지 확인
+
+#### 결측치를 처리할 때 고려할 점
+결측치를 처리할 경우도 도메인 지식은 유용하게 사용
+기계적 원임 판명 --> 협업자와 지속적으로 노력해 사전에 결측치 발생하지 않도록 조치
+수치형인 경우 0으로 메꾸는 것이 맞는지, 평균이나 중앙치가 맞는지 등은 데이터에 대한 배경지식이 있는 경우가 적절한 의사결정 이 더욱더 가능
+
+#### 이상치 처리
+
+1) 표준점수로 변환한 후 -3 이하 및 +3 제거
+2) IQR 방식
+3) 도메인 지식
+
+표준 점수를 이용할 경우 평균이 0, 표준편차가 1인 분포로 변환한 후 +3 이상이나 -3 이하인 경우를 극단치로 처리
+
+IQR 방식 --> 이해하기 쉽고 적용하기 쉬운 편이지만, 경우에 따라 너무 많은 사례들이 극단치로 고려되는 경우 있음
+
+#### 데이터 분포 변환
+대부분의 모델은 변수가 특정 분포를 따른다는 가정 ex) 선형 모델의 경우 설명 및 종속 변수 모두가 정규분포와 유사할 경우 성능이 높아지는 것으로 알려져 잇음
+
+자주쓰이는 방법은 Log, Exp, Sqrt 함수를 이용해 데이터 분포를 변환하는 것
+
+#### 데이터 단위 변환
+데이터 스케일(측정단위)이 다를 경우 모델에 부정적인 영향 미침 (특히 KNN 같이 거리를 기반으로 분류하는 모델의 경우 더욱더 심함)
+따라서 스케일링을 통해 단위를 일정하게 맞추는 작업을 진행해야함
+
+주로 스케일링을 위해 쓰이는 방법 (최대한 정규분포로 변환하는 노력 필요)
+
+* Scaling: 평균이 0, 분산이 1인 분포료 변환
+* MinMax Scaling: 특정 범위 (예, 0~1)로 모든 데이터를 변환
+* Box-Cox: 여러 k값중 가장 작은 SSE 선택
+* Robust_scale: median, interquartile range 사용(outlier 영향 최소화)
+
+------------------------------------------------------------------------
+### 04-4 모델 생성
+
+#### 모델 구축 프로세스
+
+프로세스 모델 구축
+![image](https://user-images.githubusercontent.com/62330533/138594727-81f5d854-905b-4545-b66c-613641d293d2.png)
+
+
+모델링 단계에 들어왔어도 데이터 전처리는 끝난 것이 아님.
+모델의 성능은 알고리즘의 차이보다 전처리를 어떻게 했는지에 따라 더 영향을 많이 받음
+모델의 성능을 측정해보고 결과가 만족스럽지 않았다면
+-> 여러 알고리즘 사용 or 전처리 단계 다시 진행
+
+전처리를 잘하기 위해서 EDA/시각화 과정을 반복해서 진행할 필요 있음
+
+#### 모델 구축전 확인 사항
+
+* 범주형, 연속형 데이터 형식의 적절성
+* 이상치 및 결측치 처리 여부
+* 스케일링 및 분포 변환
+* 다중공선성 문제
+* 예측변수(y)의 분포 imbalance 문제
+* 변수 축소 및 파생 변수 생성
+
+#### 분류 모델
+* Logistic Regression
+* Naive Bayes
+* k-Nearest Neighbor
+* Tree-based Model
+ * Decision Tree
+ * Random Forest
+ * Gradient Boost Regression Tree
+* SVM (Support Vector Machines)
+* ANN (Artificial Neural Network
+ * CNN
+ * RNN
+
+#### 회귀 모델
+
+* linear regerssion
+ * LASSO
+ * Ridge 
+
+#### 고려 사항
+모델 구축을 계획하는 단계부터 고려해놓을 사항
+* 목적과 데이터 특성에 맞는 모델은 무엇인가?
+* 일반화 가능성은 어떠한가? (overfitting, underfitting의 가능성은?)
+* 성능 측정의 지표는? 성능을 높이기 위해 어떻게 Feature Engineering 을 진행할 것인가?
+* 제품 혹은 시스템에 모델을 적용할시 계산량이나 언어 특성에 관해 고려할 부분은 무엇인가?
+* 모델/파라메터 업데이트 주기 및 방식은 어떻게 협의할 것인가?
+
+#### Cross Vaildation
+
+구축된 모델의 일반화 가능성 ( overfitting, underfitting) 을 다루는 문제는 매우 중요
+이를 효과적으로 다룰 수 있는 방법이 Cross Validation
+
+Cross valiation 의 순서
+![image](https://user-images.githubusercontent.com/62330533/138595369-bcc11c62-a4e3-43af-8f47-9ae3b1bbef02.png)
+
+Testset은 최적화된 파라메터로 구축된 최종 모델의 성능을 파악하기 위해 단 1회만 사용
+Dataset을 나눌 때 test_size 옵션으로 Train, Test의 비율을 설정할 수 있고, random_stat로 seed 값을 지정할 수 있다
+
+* 전체 데이터 셋을 3파트로 분류
+ * 50%: Train Set
+ * 20%: Validation set (for grid search)
+ * 30%: Test set (to be used just once at the last moment)
+
+
+#### Grid Search
+모델의 최적 파라메터를 도출하기 위해서 Kfold와 Grid search를 이용
+Scikit-learn의 GridSearchCV 클래스를 이용하면 쉽게 진행
+
+* 주요 파라메터
+ * C값 (기본값 = 1)
+ * C값이 작으면 Penalty 강해짐 (단순 모델)
+ * C값이 크면 Penalty 약해짐 (정규화 없어짐)
+ * 보통 로그스케일로 지정(10배씩) = 0.01, 0.1, 1, 10
+* penalty
+ * L2: Ridge, 일반적으로 사용 (default)
+ * L1: Lasso, 변수가 많아서 줄여야할 때 사용, 모델의 단순화 및 해석에 용이 
+
+----------------------------------------------------------------
+### 04-5 모델 평가
+
+#### 평가 Matric
+회귀 및 분류 문제에 따라 평가하는 지표 차이 있음
+이진 분류 문제의 경우, Confusion Matrix와 ROC Curve를 통해 모델을 평가하고 개선
+
+평가지표를 설정할 경우에는 상황/환경, 우선순위 등에 따라 협의하에 선정
+
+회귀 문제
+* MAE
+* MSE
+* RMSE
+* R-square
+![image](https://user-images.githubusercontent.com/62330533/138595575-f54851e4-7bdc-401d-abcf-043e660dfdcb.png)
+
+분류 문제
+* Confusion Matrix
+* ROC Curve
+
+![image](https://user-images.githubusercontent.com/62330533/138595605-6f392c6f-c414-4344-aec3-253c5efe28d6.png)
+
+----------------------------------------------------------
+### 04-6 모델 성과 개선
+
+첫 번째 모델의 성능을 baseline으로 참고하여 전처리를 다시하거나 변수 선택 및 여러 모델 등을 적용해보며 퍼포먼스를 올리는 과정이 필요
+
+#### 변수 스케일링 및 분포 변환
+
+* Standardization, Mean Normalization, MinMax Scaling
+* Log, Sqrt, Square for distribution transformation
+
+#### Upsampling & Downsampling
+
+타깃 변수의 그룹별 비율이 차이나는 경우, Imbalance 분포를 보이게 됨 (ex, 결제자의 수가 매우 적고, 비결제자의 수가 많은 경우)
+![image](https://user-images.githubusercontent.com/62330533/138595732-10a0c6f8-c6e6-4bd1-b87e-76f2817c759f.png)
+
+모델이 학습을 위해 요구하는 충분한 데이터가 제공되지 않으므로 아래와 같은 방법 적용
+* Collect more data
+* Resampling the Dataset
+ * Oversampling (no infomation loss, perform better than udenrsampling, but overfitting issues)
+ * Undersampling(help improve run time and storage broblems, but information loss, biased dataset)
+* Generate Synthetic Samples
+
+#### Feature Selection
+모델의 적용할 input 변수를 잘 선정하는 것은 모델의 성능에 직접적인 영향을 미치는 과정
+모델의 성능을 높이는데 유용한 변수를 선택할 필요 있음
+* Univariate Selection (T-test, ANOVA, Coefficient and so on)
+* Feature Importance (from Tree-based model)
+* RFE (recursive feature elimiation)
+
+Univariate Selection
+* 그룹 내 분산이 작고 그룹간 분산이 클 경우 값이 커지는 F-value를 이용하여 변수를 선택
+* 각 변수마다 F 값을 구해 F값이 큰 변수를 기준으로 변수를 선택하는 방법
+
+ExtraTreesClassifier (트리 기반 모델)
+* Feature Importance는 불확실도를 많이 낮출수록 증가하므로 이를 기준으로 변수 선택할 수 있음
+
+RFE (recursive feature elimination)
+* Backward 방식 중 하나
+* 모든 변수를 우선 다 포함 시킨 후 반복해서 학습을 진행하면서 중요도가 낮은 변수를 하나씩 제거하는 방식
+
+
+#### Model Selection
+
+Scikit-learn은 전처리(스케일링, feature selection, model selection)과 grid search를 한번에 진행할 수 있도록 파이프라인 기능을 제공
+
+
+
+
